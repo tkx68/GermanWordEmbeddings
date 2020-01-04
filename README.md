@@ -43,7 +43,7 @@ wget https://dumps.wikimedia.org/dewiki/latest/dewiki-latest-pages-articles.xml.
 
 ### Statistical Machine Translation
 
-Shuffled German news of the years 2007 to 2013:
+##### Shuffled German news of the years 2007 to 2013:
 
 ```shell
 for i in 2007 2008 2009 2010 2011 2012 2013; do
@@ -52,6 +52,14 @@ done
 ```
 
 Models trained with this toolkit are based on the German Wikipedia and German news of 2013.
+
+##### EU Parliament protocols
+
+```shell
+wget http://www.statmt.org/wmt14/training-monolingual-europarl-v7/europarl-v7.de.gz
+```
+
+Proceed with this file in the same way as with the news data files.
 
 ## Preprocessing <a name="preprocessing"></a>
 
@@ -73,6 +81,7 @@ for i in 2007 2008 2009 2010 2011 2012 2013; do
   gzip -d news.$i.de.shuffled.gz
   sed -i 's|["'\''„“‚‘]||g' news.$i.de.shuffled
 done
+sed -i 's|["'\''„“‚‘]||g' news.$i.de.shuffled
 ```
 
 Afterwards, the [`preprocessing.py`](preprocessing.py) script can be called on these corpus files with the following options:
