@@ -62,6 +62,13 @@ code/.ipynb_*
 code/my.*
 code/corpus*
 *bible*
+*.model
+*.vocab
+*.bz2
+*.xml
+*.shuffled
+*.result
+raw*/*
 
 .idea
 run.sh

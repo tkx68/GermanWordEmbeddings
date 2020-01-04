@@ -13,7 +13,7 @@ import os
 import gensim
 import numpy as np
 import tensorflow as tf
-from tensorflow.contrib.tensorboard.plugins import projector
+from tensorboard.plugins import projector
 
 
 parser = argparse.ArgumentParser(description='Script for visualizing word vector models with tensorboard')
@@ -59,5 +59,5 @@ projector.visualize_embeddings(writer, config)
 
 saver.save(sess, '{}/{}_model.ckpt'.format(args.projector, args.prefix), global_step=args.samples)
 
-print('Start tensorboard with: \'tensorboard --logdir=\"projector\"\'\n'
+print('Start tensor board with: \'tensorboard --logdir=\"projector\"\'\n'
       'and check http://localhost:6006/#embeddings to view your embedding')

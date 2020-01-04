@@ -17,12 +17,13 @@ import random
 import argparse
 import logging
 from pathlib import Path
+import codecs
 
 # configuration
-parser = argparse.ArgumentParser(description='Script for creating testsets and evaluating word vector models')
+parser = argparse.ArgumentParser(description='Script for creating test sets and evaluating word vector models')
 parser.add_argument('model', type=str, help='source file with trained model')
-parser.add_argument('-c', '--create', action='store_true', help='if set, create testsets before evaluating')
-parser.add_argument('-u', '--umlauts', action='store_true', help='if set, create additional testsets with transformed umlauts and use them instead')
+parser.add_argument('-c', '--create', action='store_true', help='if set, create test sets before evaluating')
+parser.add_argument('-u', '--umlauts', action='store_true', help='if set, create additional test sets with transformed umlauts and use them instead')
 parser.add_argument('-t', '--topn', type=int, default=10, help='check the top n result (correct answer under top n answeres)')
 
 args = parser.parse_args()
@@ -37,26 +38,26 @@ SRC_BESTMATCH = 'src/bestmatch.txt'
 SRC_DOESNTFIT = 'src/doesntfit.txt'
 SRC_OPPOSITE = 'src/opposite.txt'
 PATTERN_SYN = [
-    ('nouns', 'SI/PL', SRC_NOUNS, 0, 1),
-    ('nouns', 'PL/SI', SRC_NOUNS, 1, 0),
-    ('adjectives', 'GR/KOM', SRC_ADJECTIVES, 0, 1),
-    ('adjectives', 'KOM/GR', SRC_ADJECTIVES, 1, 0),
-    ('adjectives', 'GR/SUP', SRC_ADJECTIVES, 0, 2),
-    ('adjectives', 'SUP/GR', SRC_ADJECTIVES, 2, 0),
-    ('adjectives', 'KOM/SUP', SRC_ADJECTIVES, 1, 2),
-    ('adjectives', 'SUP/KOM', SRC_ADJECTIVES, 2, 1),
-    ('verbs (pres)', 'INF/1SP', SRC_VERBS, 0, 1),
-    ('verbs (pres)', '1SP/INF', SRC_VERBS, 1, 0),
-    ('verbs (pres)', 'INF/2PP', SRC_VERBS, 0, 2),
-    ('verbs (pres)', '2PP/INF', SRC_VERBS, 2, 0),
-    ('verbs (pres)', '1SP/2PP', SRC_VERBS, 1, 2),
-    ('verbs (pres)', '2PP/1SP', SRC_VERBS, 2, 1),
-    ('verbs (past)', 'INF/3SV', SRC_VERBS, 0, 3),
-    ('verbs (past)', '3SV/INF', SRC_VERBS, 3, 0),
-    ('verbs (past)', 'INF/3PV', SRC_VERBS, 0, 4),
-    ('verbs (past)', '3PV/INF', SRC_VERBS, 4, 0),
-    ('verbs (past)', '3SV/3PV', SRC_VERBS, 3, 4),
-    ('verbs (past)', '3PV/3SV', SRC_VERBS, 4, 3)
+    (u'nouns', u'SI/PL', SRC_NOUNS, 0, 1),
+    (u'nouns', u'PL/SI', SRC_NOUNS, 1, 0),
+    (u'adjectives', u'GR/KOM', SRC_ADJECTIVES, 0, 1),
+    (u'adjectives', u'KOM/GR', SRC_ADJECTIVES, 1, 0),
+    (u'adjectives', u'GR/SUP', SRC_ADJECTIVES, 0, 2),
+    (u'adjectives', u'SUP/GR', SRC_ADJECTIVES, 2, 0),
+    (u'adjectives', u'KOM/SUP', SRC_ADJECTIVES, 1, 2),
+    (u'adjectives', u'SUP/KOM', SRC_ADJECTIVES, 2, 1),
+    (u'verbs (pres)', u'INF/1SP', SRC_VERBS, 0, 1),
+    (u'verbs (pres)', u'1SP/INF', SRC_VERBS, 1, 0),
+    (u'verbs (pres)', u'INF/2PP', SRC_VERBS, 0, 2),
+    (u'verbs (pres)', u'2PP/INF', SRC_VERBS, 2, 0),
+    (u'verbs (pres)', u'1SP/2PP', SRC_VERBS, 1, 2),
+    (u'verbs (pres)', u'2PP/1SP', SRC_VERBS, 2, 1),
+    (u'verbs (past)', u'INF/3SV', SRC_VERBS, 0, 3),
+    (u'verbs (past)', u'3SV/INF', SRC_VERBS, 3, 0),
+    (u'verbs (past)', u'INF/3PV', SRC_VERBS, 0, 4),
+    (u'verbs (past)', u'3PV/INF', SRC_VERBS, 4, 0),
+    (u'verbs (past)', u'3SV/3PV', SRC_VERBS, 3, 4),
+    (u'verbs (past)', u'3PV/3SV', SRC_VERBS, 4, 3)
 ]
 logging.basicConfig(filename=args.model.strip() + '.result', format='%(asctime)s : %(message)s', level=logging.INFO)
 
@@ -72,13 +73,13 @@ def replace_umlauts(text):
     :return: manipulated text as str
     """
     res = text
-    res = res.replace('ä', 'ae')
-    res = res.replace('ö', 'oe')
-    res = res.replace('ü', 'ue')
-    res = res.replace('Ä', 'Ae')
-    res = res.replace('Ö', 'Oe')
-    res = res.replace('Ü', 'Ue')
-    res = res.replace('ß', 'ss')
+    res = res.replace(u'ä', u'ae')
+    res = res.replace(u'ö', u'oe')
+    res = res.replace(u'ü', u'ue')
+    res = res.replace(u'Ä', u'Ae')
+    res = res.replace(u'Ö', u'Oe')
+    res = res.replace(u'Ü', u'Ue')
+    res = res.replace(u'ß', u'ss')
     return res
 
 
@@ -89,12 +90,12 @@ def create_syntactic_testset():
     :return: None
     """
     if args.umlauts:
-        u = open(TARGET_SYN + '.nouml', 'w')
-    with open(TARGET_SYN, 'w') as t:
+        u = codecs.open(TARGET_SYN + '.nouml', 'w', encoding="utf-8")
+    with codecs.open(TARGET_SYN, 'w', encoding="utf-8") as t:
         for label, short, src, index1, index2 in PATTERN_SYN:
-            t.write(': {}: {}\n'.format(label, short))
+            t.write(u': {}: {}\n'.format(label, short))
             if args.umlauts:
-                u.write(': {}: {}\n'.format(label, short))
+                u.write(u': {}: {}\n'.format(label, short))
             for q in create_questions(src, index1, index2):
                 t.write(q + '\n')
                 if args.umlauts:
@@ -109,40 +110,40 @@ def create_semantic_testset():
     :return: None
     """
     # opposite
-    with open(TARGET_SEM_OP, 'w') as t:
+    with codecs.open(TARGET_SEM_OP, 'w', encoding="utf-8") as t:
         for q in create_questions(SRC_OPPOSITE, combinate=10):
             t.write(q + '\n')
             if args.umlauts:
-                with open(TARGET_SEM_OP + '.nouml', 'w') as u:
+                with codecs.open(TARGET_SEM_OP + '.nouml', 'w', encoding="utf-8") as u:
                     u.write(replace_umlauts(q) + '\n')
         logging.info('created opposite questions')
 
     # best match
-    with open(TARGET_SEM_BM, 'w') as t:
-        groups = open(SRC_BESTMATCH).read().split(':')
+    with codecs.open(TARGET_SEM_BM, 'w', encoding="utf-8") as t:
+        groups = codecs.open(SRC_BESTMATCH, encoding="utf-8").read().split(u':')
         groups.pop(0)  # remove first empty group
         for group in groups:
             questions = group.splitlines()
             _ = questions.pop(0)
             while questions:
                 for i in range(1, len(questions)):
-                    question = questions[0].split('-') + questions[i].split('-')
-                    t.write(' '.join(question) + '\n')
+                    question = questions[0].split(u'-') + questions[i].split(u'-')
+                    t.write(u' '.join(question) + '\n')
                     if args.umlauts:
-                        with open(TARGET_SEM_BM + '.nouml', 'w') as u:
-                            u.write(replace_umlauts(' '.join(question)) + '\n')
+                        with codecs.open(TARGET_SEM_BM + '.nouml', 'w', encoding="utf-8") as u:
+                            u.write(replace_umlauts(u' '.join(question)) + '\n')
                 questions.pop(0)
         logging.info('created best-match questions')
 
     # doesn't fit
-    with open(TARGET_SEM_DF, 'w') as t:
-        for line in open(SRC_DOESNTFIT):
+    with codecs.open(TARGET_SEM_DF, 'w', encoding="utf-8") as t:
+        for line in codecs.open(SRC_DOESNTFIT, encoding="utf-8"):
             words = line.split()
-            for wrongword in words[-1].split('-'):
+            for wrongword in words[-1].split(u'-'):
                 question = ' '.join(words[:3] + [wrongword])
                 t.write(question + '\n')
                 if args.umlauts:
-                    with open(TARGET_SEM_DF + '.nouml', 'w') as u:
+                    with codecs.open(TARGET_SEM_DF + '.nouml', 'w', encoding="utf-8") as u:
                         u.write(replace_umlauts(question) + '\n')
         logging.info('created doesn\'t-fit questions')
 
@@ -158,7 +159,7 @@ def create_questions(src, index1=0, index2=1, combinate=5):
     :return: list of question words
     """
     # get source content
-    with open(src) as f:
+    with codecs.open(src, encoding="utf-8") as f:
         content = f.readlines()
         content = [x.strip() for x in content]
 
@@ -167,13 +168,13 @@ def create_questions(src, index1=0, index2=1, combinate=5):
     for line in content:
         for i in range(0, combinate):
             # get current word pair
-            question = list(line.split('-')[i] for i in [index1, index2])
+            question = list(line.split(u'-')[i] for i in [index1, index2])
             # get random word pair that is not the current
             random_line = random.choice(list(set(content) - {line}))
-            random_word = list(random_line.split('-')[i] for i in [index1, index2])
+            random_word = list(random_line.split(u'-')[i] for i in [index1, index2])
             # merge both word pairs to one question
             question.extend(random_word)
-            questions.append(' '.join(question))
+            questions.append(u' '.join(question))
     return questions
 
 
@@ -187,12 +188,12 @@ def test_most_similar(model, src, label='most similar', topn=10):
     :param topn: number of top matches
     :return:
     """
-    num_lines = sum(1 for _ in open(src))
+    num_lines = sum(1 for _ in codecs.open(src, encoding="utf-8"))
     num_questions = 0
     num_right = 0
     num_topn = 0
     # get questions
-    with open(src) as f:
+    with codecs.open(src, encoding="utf-8") as f:
         questions = f.readlines()
         questions = [x.strip() for x in questions]
     # test each question
@@ -234,12 +235,12 @@ def test_most_similar_groups(model, src, topn=10):
     num_right = 0
     num_topn = 0
     # test each group
-    with open(src) as groups_fp:
-        groups = groups_fp.read().split('\n: ')
+    with codecs.open(src, encoding="utf-8") as groups_fp:
+        groups = groups_fp.read().split(u'\n: ')
         for group in groups:
             questions = group.splitlines()
             label = questions.pop(0)
-            label = label[2:] if label.startswith(': ') else label  # handle first group
+            label = label[2:] if label.startswith(u': ') else label  # handle first group
             num_group_lines = len(questions)
             num_group_questions = 0
             num_group_right = 0
@@ -298,11 +299,11 @@ def test_doesnt_fit(model, src):
     :param src: source file to load words from
     :return:
     """
-    num_lines = sum(1 for _ in open(src))
+    num_lines = sum(1 for _ in codecs.open(src, encoding="utf-8"))
     num_questions = 0
     num_right = 0
     # get questions
-    with open(src) as f:
+    with codecs.open(src, encoding="utf-8") as f:
         questions = f.readlines()
         questions = [x.strip() for x in questions]
     # test each question

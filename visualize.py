@@ -24,7 +24,7 @@ args = parser.parse_args()
 
 # configuration
 currency = [
-    'Schweiz', 'Franken', 'Deutschland', 'Euro', 'Grossbritannien', 'britische_Pfund',
+    'Schweiz', 'Franken', 'Deutschland', 'Euro', 'Grossbritannien', 'Pfund',
     'Japan', 'Yen', 'Russland', 'Rubel', 'USA', 'US-Dollar', 'Kroatien', 'Kuna'
 ]
 capital = [
@@ -35,6 +35,7 @@ language = [
     'Deutschland', 'Deutsch', 'USA', 'Englisch', 'Frankreich', 'Franzoesisch', 'Griechenland', 'Griechisch',
     'Norwegen', 'Norwegisch', 'Schweden', 'Schwedisch', 'Polen', 'Polnisch', 'Ungarn', 'Ungarisch'
 ]
+
 
 # matches = model.most_similar(positive=["Frau"], negative=[], topn=30)
 # words = [match[0] for match in matches]
@@ -77,7 +78,7 @@ def draw_words(model, words, pca=False, alternate=True, arrows=True, x1=3, x2=3,
         plt.scatter(point[0], point[1], c='r' if first else 'g')
         # plot word annotations
         plt.annotate(
-            word, 
+            word,
             xy=(point[0], point[1]),
             xytext=(-7, -6) if first else (7, -6),
             textcoords='offset points',
@@ -89,13 +90,13 @@ def draw_words(model, words, pca=False, alternate=True, arrows=True, x1=3, x2=3,
 
     # draw arrows
     if arrows:
-        for i in range(0, len(words)-1, 2):
+        for i in range(0, len(words) - 1, 2):
             a = vectors2d[i][0] + 0.04
             b = vectors2d[i][1]
-            c = vectors2d[i+1][0] - 0.04
-            d = vectors2d[i+1][1]
+            c = vectors2d[i + 1][0] - 0.04
+            d = vectors2d[i + 1][1]
             plt.arrow(
-                a, b, c-a, d-b,
+                a, b, c - a, d - b,
                 shape='full',
                 lw=0.1,
                 edgecolor='#bbbbbb',
@@ -112,7 +113,9 @@ def draw_words(model, words, pca=False, alternate=True, arrows=True, x1=3, x2=3,
     plt.tight_layout()
     plt.show()
 
+
 # get trained model
+print u'Load word2vec model from file...'
 trained_model = gensim.models.KeyedVectors.load_word2vec_format(args.model, binary=True)
 # draw pca plots
 draw_words(trained_model, currency, True, True, True, -3, 3, -2, 2, r'$PCA\ Visualisierung:\ W\ddot{a}hrung$')

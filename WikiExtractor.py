@@ -47,9 +47,9 @@ collecting template definitions.
 """
 
 import sys, os.path, time
-import re                       # TODO use regex when it will be standard
+import re  # TODO use regex when it will be standard
 import argparse, random
-from itertools import izip,  izip_longest
+from itertools import izip, izip_longest
 import logging
 import urllib
 import bz2
@@ -57,7 +57,7 @@ import codecs
 from htmlentitydefs import name2codepoint
 import Queue, threading, multiprocessing
 
-#===========================================================================
+# ===========================================================================
 
 # Program version
 version = '2.32'
@@ -85,21 +85,23 @@ acceptedNamespaces = ['w', 'wiktionary', 'wikt']
 # Drop these elements from article text
 #
 discardElements = [
-        'gallery', 'timeline', 'noinclude', 'pre',
-        'table', 'tr', 'td', 'th', 'caption', 'div',
-        'form', 'input', 'select', 'option', 'textarea',
-        'ul', 'li', 'ol', 'dl', 'dt', 'dd', 'menu', 'dir',
-        'ref', 'references', 'img', 'imagemap', 'source', 'small'
-        ]
+    'gallery', 'timeline', 'noinclude', 'pre',
+    'table', 'tr', 'td', 'th', 'caption', 'div',
+    'form', 'input', 'select', 'option', 'textarea',
+    'ul', 'li', 'ol', 'dl', 'dt', 'dd', 'menu', 'dir',
+    'ref', 'references', 'img', 'imagemap', 'source', 'small'
+]
 
 # This is obtained from <siteinfo>
 urlbase = None
+
 
 def get_url(id):
     global urlbase
     return "%s?curid=%s" % (urlbase, id)
 
-#=========================================================================
+
+# =========================================================================
 #
 # MediaWiki Markup Grammar
 # https://www.mediawiki.org/wiki/Preprocessor_ABNF
@@ -133,9 +135,9 @@ def get_url(id):
 #                   line-eating-comment / unclosed-comment / xmlish-element /
 #                   *wikitext-L3
 
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 
-selfClosingTags = [ 'br', 'hr', 'nobr', 'ref', 'references', 'nowiki' ]
+selfClosingTags = ['br', 'hr', 'nobr', 'ref', 'references', 'nowiki']
 
 # These tags are dropped, keeping their content.
 # handle 'a' separately, depending on keepLinks
@@ -146,7 +148,8 @@ ignoredTags = [
     'sub', 'sup', 'tt', 'u', 'var'
 ]
 
-placeholder_tags = {'math':'formula', 'code':'codice'}
+placeholder_tags = {'math': 'formula', 'code': 'codice'}
+
 
 def normalizeTitle(title):
     """Normalize title"""
@@ -185,6 +188,7 @@ def normalizeTitle(title):
         title = ucfirst(title)
     return title
 
+
 ##
 # Removes HTML or XML character references and entities from a text string.
 #
@@ -201,12 +205,13 @@ def unescape(text):
                     return unichr(int(code[1:], 16))
                 else:
                     return unichr(int(code))
-            else:               # named entity
+            else:  # named entity
                 return unichr(name2codepoint[code])
         except:
-            return text # leave as is
+            return text  # leave as is
 
     return re.sub("&#?(\w+);", fixup, text)
+
 
 # Match HTML comments
 # The buggy template {{Template:T}} has a comment terminating with just "->"
@@ -214,10 +219,13 @@ comment = re.compile(r'<!--.*?-->', re.DOTALL)
 
 # Match ignored tags
 ignored_tag_patterns = []
+
+
 def ignoreTag(tag):
-    left = re.compile(r'<%s\b[^>/]*>' % tag, re.IGNORECASE) # both <ref> and <reference>
+    left = re.compile(r'<%s\b[^>/]*>' % tag, re.IGNORECASE)  # both <ref> and <reference>
     right = re.compile(r'</\s*%s>' % tag, re.IGNORECASE)
     ignored_tag_patterns.append((left, right))
+
 
 for tag in ignoredTags:
     ignoreTag(tag)
@@ -253,7 +261,8 @@ spaces = re.compile(r' {2,}')
 # Matches dots
 dots = re.compile(r'\.{4,}')
 
-#======================================================================
+
+# ======================================================================
 
 class Template(list):
     """
@@ -269,11 +278,11 @@ class Template(list):
         # {{#if:{{{{{#if:{{{nominee|}}}|nominee|candidate}}|}}}|
         #
         start = 0
-        for s,e in findMatchingBraces(body, 3):
+        for s, e in findMatchingBraces(body, 3):
             tpl.append(TemplateText(body[start:s]))
-            tpl.append(TemplateArg(body[s+3:e-3]))
+            tpl.append(TemplateArg(body[s + 3:e - 3]))
             start = e
-        tpl.append(TemplateText(body[start:])) # leftover
+        tpl.append(TemplateText(body[start:]))  # leftover
         return tpl
 
     def subst(self, params, extractor, depth=0):
@@ -303,17 +312,20 @@ class Template(list):
     def __str__(self):
         return ''.join([unicode(x) for x in self])
 
+
 class TemplateText(unicode):
     """Fixed text of template"""
 
     def subst(self, params, extractor, depth):
         return self
 
+
 class TemplateArg(object):
     """
     parameter to a template.
     Has a name and a default value, both of which are Templates.
     """
+
     def __init__(self, parameter):
         """
         :param parameter: the parts of a tplarg.
@@ -324,7 +336,7 @@ class TemplateArg(object):
 
         # any parts in a tplarg after the first (the parameter default) are
         # ignored, and an equals sign in the first part is treated as plain text.
-        #logging.debug('TemplateArg %s', parameter)
+        # logging.debug('TemplateArg %s', parameter)
 
         parts = splitParts(parameter)
         self.name = Template.parse(parts[0])
@@ -348,20 +360,22 @@ class TemplateArg(object):
         """
         # the parameter name itself might contain templates, e.g.:
         # appointe{{#if:{{{appointer14|}}}|r|d}}14|
-        paramName = self.name.subst(params, extractor, depth+1)
+        paramName = self.name.subst(params, extractor, depth + 1)
         paramName = extractor.expandTemplates(paramName)
         res = ''
         if paramName in params:
             res = params[paramName]  # use parameter value specified in template invocation
-        elif self.default:            # use the default value
-            defaultValue = self.default.subst(params, extractor, depth+1)
-            res =  extractor.expandTemplates(defaultValue)
+        elif self.default:  # use the default value
+            defaultValue = self.default.subst(params, extractor, depth + 1)
+            res = extractor.expandTemplates(defaultValue)
         logging.debug('subst arg %d %s -> %s' % (depth, paramName, res))
         return res
 
-#======================================================================
+
+# ======================================================================
 
 substWords = 'subst:|safesubst:'
+
 
 class Extractor(object):
     """
@@ -414,7 +428,7 @@ class Extractor(object):
             out.write('\n')
         out.write(footer)
 
-    #----------------------------------------------------------------------
+    # ----------------------------------------------------------------------
     # Expand templates
 
     maxTemplateRecursionLevels = 30
@@ -450,12 +464,12 @@ class Extractor(object):
             logging.warn('Max template recursion exceeded!')
             return res
 
-        #logging.debug('<expandTemplates ' + str(len(self.frame)))
+        # logging.debug('<expandTemplates ' + str(len(self.frame)))
 
         cur = 0
         # look for matching {{...}}
-        for s,e in findMatchingBraces(wikitext, 2):
-            res += wikitext[cur:s] + self.expandTemplate(wikitext[s+2:e-2])
+        for s, e in findMatchingBraces(wikitext, 2):
+            res += wikitext[cur:s] + self.expandTemplate(wikitext[s + 2:e - 2])
             cur = e
         # leftover
         res += wikitext[cur:]
@@ -519,14 +533,14 @@ class Extractor(object):
                 parameterName = m.group(1).strip()
                 parameterValue = m.group(2)
 
-                if ']]' not in parameterValue: # if the value does not contain a link, trim whitespace
+                if ']]' not in parameterValue:  # if the value does not contain a link, trim whitespace
                     parameterValue = parameterValue.strip()
                 templateParams[parameterName] = parameterValue
             else:
                 # this is an unnamed parameter
                 unnamedParameterCounter += 1
 
-                if ']]' not in param: # if the value does not contain a link, trim whitespace
+                if ']]' not in param:  # if the value does not contain a link, trim whitespace
                     param = param.strip()
                 templateParams[str(unnamedParameterCounter)] = param
         logging.debug('   templateParams> %s', '|'.join(templateParams.values()))
@@ -609,7 +623,7 @@ class Extractor(object):
         colon = title.find(':')
         if colon > 1:
             funct = title[:colon]
-            parts[0] = title[colon+1:].strip() # side-effect (parts[0] not used later)
+            parts[0] = title[colon + 1:].strip()  # side-effect (parts[0] not used later)
             # arguments after first are not evaluated
             ret = callParserFunction(funct, parts, self.frame)
             return self.expandTemplates(ret)
@@ -682,6 +696,7 @@ class Extractor(object):
         logging.debug('   INVOCATION> %s %d %s', title, len(self.frame), value)
         return value
 
+
 # ----------------------------------------------------------------------
 # parameter handling
 
@@ -725,7 +740,7 @@ def splitParts(paramsList):
     sep = '|'
     parameters = []
     cur = 0
-    for s,e in findMatchingBraces(paramsList):
+    for s, e in findMatchingBraces(paramsList):
         par = paramsList[cur:s].split(sep)
         if par:
             if parameters:
@@ -737,7 +752,7 @@ def splitParts(paramsList):
             else:
                 parameters = par
         elif not parameters:
-            parameters = ['']   # create first param
+            parameters = ['']  # create first param
         # add span to last previous parameter
         parameters[-1] += paramsList[s:e]
         cur = e
@@ -753,8 +768,9 @@ def splitParts(paramsList):
         else:
             parameters = par
 
-    #logging.debug('splitParts %s %s\nparams: %s', sep, paramsList, str(parameters))
+    # logging.debug('splitParts %s %s\nparams: %s', sep, paramsList, str(parameters))
     return parameters
+
 
 def findMatchingBraces(text, ldelim=0):
     """
@@ -794,49 +810,49 @@ def findMatchingBraces(text, ldelim=0):
     # as well as expressions with stray }:
     #   {{{link|{{ucfirst:{{{1}}}}}} interchange}}}
 
-    if ldelim:                                   # 2-3
-        reOpen = re.compile('[{]{%d,}' % ldelim) # at least ldelim
-        reNext = re.compile('[{]{2,}|}{2,}') # at least 2
+    if ldelim:  # 2-3
+        reOpen = re.compile('[{]{%d,}' % ldelim)  # at least ldelim
+        reNext = re.compile('[{]{2,}|}{2,}')  # at least 2
     else:
         reOpen = re.compile('{{2,}|\[{2,}')
-        reNext = re.compile('{{2,}|}{2,}|\[{2,}|]{2,}') # at least 2
+        reNext = re.compile('{{2,}|}{2,}|\[{2,}|]{2,}')  # at least 2
 
     cur = 0
     while True:
         m1 = reOpen.search(text, cur)
         if not m1:
             return
-        lmatch = m1.end()-m1.start()
+        lmatch = m1.end() - m1.start()
         if m1.group()[0] == '{':
-            stack = [lmatch]    # stack of opening braces lengths
+            stack = [lmatch]  # stack of opening braces lengths
         else:
-            stack = [-lmatch]   # negative means [
+            stack = [-lmatch]  # negative means [
         end = m1.end()
         while True:
             m2 = reNext.search(text, end)
             if not m2:
-                return      # unbalanced
+                return  # unbalanced
             end = m2.end()
             brac = m2.group()[0]
-            lmatch = m2.end()-m2.start()
+            lmatch = m2.end() - m2.start()
 
             if brac == '{':
                 stack.append(lmatch)
             elif brac == '}':
                 while stack:
-                    openCount = stack.pop() # opening span
-                    if openCount == 0:      # illegal unmatched [[
+                    openCount = stack.pop()  # opening span
+                    if openCount == 0:  # illegal unmatched [[
                         continue
                     if lmatch >= openCount:
                         lmatch -= openCount
-                        if lmatch <= 1: # either close or stray }
+                        if lmatch <= 1:  # either close or stray }
                             break
                     else:
                         # put back unmatched
                         stack.append(openCount - lmatch)
                         break
                 if not stack:
-                    yield m1.start(), end-lmatch
+                    yield m1.start(), end - lmatch
                     cur = end
                     break
                 elif len(stack) == 1 and 0 < stack[0] < ldelim:
@@ -844,25 +860,26 @@ def findMatchingBraces(text, ldelim=0):
                     yield m1.start() + stack[0], end
                     cur = end
                     break
-            elif brac == '[': # [[
+            elif brac == '[':  # [[
                 stack.append(-lmatch)
-            else:               # ]]
-                while stack and stack[-1] < 0: # matching [[
+            else:  # ]]
+                while stack and stack[-1] < 0:  # matching [[
                     openCount = -stack.pop()
                     if lmatch >= openCount:
                         lmatch -= openCount
-                        if lmatch <= 1: # either close or stray ]
+                        if lmatch <= 1:  # either close or stray ]
                             break
                     else:
                         # put back unmatched (negative)
                         stack.append(lmatch - openCount)
                         break
                 if not stack:
-                    yield m1.start(), end-lmatch
+                    yield m1.start(), end - lmatch
                     cur = end
                     break
                 # unmatched ]] are discarded
                 cur = end
+
 
 def findBalanced(text, openDelim, closeDelim):
     """
@@ -874,7 +891,7 @@ def findBalanced(text, openDelim, closeDelim):
     """
     openPat = '|'.join([re.escape(x) for x in openDelim])
     # patter for delimiters expected after each opening delimiter
-    afterPat = { o:re.compile(openPat+'|'+c, re.DOTALL) for o,c in izip(openDelim, closeDelim)}
+    afterPat = {o: re.compile(openPat + '|' + c, re.DOTALL) for o, c in izip(openDelim, closeDelim)}
     stack = []
     start = 0
     cur = 0
@@ -905,6 +922,7 @@ def findBalanced(text, openDelim, closeDelim):
                 startSet = False
         cur = next.end()
 
+
 # ----------------------------------------------------------------------
 # Modules
 
@@ -912,10 +930,11 @@ def findBalanced(text, openDelim, closeDelim):
 # FIXME: import Lua modules.
 
 modules = {
-    'convert' : {
-        'convert': lambda x, u, *rest: x+' '+u, # no conversion
+    'convert': {
+        'convert': lambda x, u, *rest: x + ' ' + u,  # no conversion
     }
 }
+
 
 # ----------------------------------------------------------------------
 # variables
@@ -1035,9 +1054,11 @@ class MagicWords(object):
         '__NOINDEX__',
         '__STATICREDIRECT__',
         '__DISAMBIG__'
-        ]
+    ]
+
 
 magicWordsRE = re.compile('|'.join(MagicWords.switches))
+
 
 # ----------------------------------------------------------------------
 # parser functions utilities
@@ -1052,6 +1073,7 @@ def ucfirst(string):
     else:
         return ''
 
+
 def lcfirst(string):
     """:return: a string with its first character lowercase"""
     if string:
@@ -1061,6 +1083,7 @@ def lcfirst(string):
             return string.lower()
     else:
         return ''
+
 
 def fullyQualifiedTemplateTitle(templateTitle):
     """
@@ -1095,8 +1118,10 @@ def fullyQualifiedTemplateTitle(templateTitle):
         logging.warn("Skipping page with empty title")
         return ''
 
+
 def normalizeNamespace(ns):
     return ucfirst(ns)
+
 
 # ----------------------------------------------------------------------
 # Parser functions
@@ -1108,20 +1133,28 @@ class Infix:
     The calling sequence for the infix is:
       x |op| y
     """
+
     def __init__(self, function):
         self.function = function
+
     def __ror__(self, other):
         return Infix(lambda x, self=self, other=other: self.function(other, x))
+
     def __or__(self, other):
         return self.function(other)
+
     def __rlshift__(self, other):
         return Infix(lambda x, self=self, other=other: self.function(other, x))
+
     def __rshift__(self, other):
         return self.function(other)
+
     def __call__(self, value1, value2):
         return self.function(value1, value2)
 
-ROUND = Infix(lambda x,y: round(x, y))
+
+ROUND = Infix(lambda x, y: round(x, y))
+
 
 def sharp_expr(expr):
     try:
@@ -1147,6 +1180,7 @@ def sharp_if(testValue, valueIfTrue, valueIfFalse=None, *args):
         return valueIfFalse.strip()
     return ""
 
+
 def sharp_ifeq(lvalue, rvalue, valueIfTrue, valueIfFalse=None, *args):
     rvalue = rvalue.strip()
     if rvalue:
@@ -1164,6 +1198,7 @@ def sharp_ifeq(lvalue, rvalue, valueIfTrue, valueIfFalse=None, *args):
                 return valueIfFalse.strip()
     return ""
 
+
 def sharp_iferror(test, then='', Else=None, *args):
     if re.match('<(?:strong|span|p|div)\s(?:[^\s>]*\s+)*?class="(?:[^"\s>]*\s+)*?error(?:\s[^">]*)?"', test):
         return then
@@ -1171,6 +1206,7 @@ def sharp_iferror(test, then='', Else=None, *args):
         return test.strip()
     else:
         return Else.strip()
+
 
 def sharp_switch(primary, *params):
     # FIXME: we don't support numeric expressions in primary
@@ -1184,7 +1220,7 @@ def sharp_switch(primary, *params):
     # }}
 
     primary = primary.strip()
-    found = False               # for fall through cases
+    found = False  # for fall through cases
     default = None
     rvalue = None
     lvalue = ''
@@ -1203,7 +1239,7 @@ def sharp_switch(primary, *params):
                 return rvalue
             elif lvalue == '#default':
                 default = rvalue
-            rvalue = None   # avoid defaulting to last case
+            rvalue = None  # avoid defaulting to last case
         elif lvalue == primary:
             # If the value matches, set a flag and continue
             found = True
@@ -1214,6 +1250,7 @@ def sharp_switch(primary, *params):
     elif default is not None:
         return default
     return ''
+
 
 # Extension Scribuntu
 def sharp_invoke(module, function, frame):
@@ -1228,11 +1265,12 @@ def sharp_invoke(module, function, frame):
             if pair:
                 params = pair[1]
                 # extract positional args
-                params = [params.get(str(i+1)) for i in range(len(params))]
+                params = [params.get(str(i + 1)) for i in range(len(params))]
                 return funct(*params)
             else:
                 return funct()
     return ''
+
 
 parserFunctions = {
 
@@ -1244,21 +1282,21 @@ parserFunctions = {
 
     '#iferror': sharp_iferror,
 
-    '#ifexpr': lambda *args: '', # not supported
+    '#ifexpr': lambda *args: '',  # not supported
 
-    '#ifexist': lambda *args: '', # not supported
+    '#ifexist': lambda *args: '',  # not supported
 
-    '#rel2abs': lambda *args: '', # not supported
+    '#rel2abs': lambda *args: '',  # not supported
 
     '#switch': sharp_switch,
 
-    '#language': lambda *args: '', # not supported
+    '#language': lambda *args: '',  # not supported
 
-    '#time': lambda *args: '', # not supported
+    '#time': lambda *args: '',  # not supported
 
-    '#timel': lambda *args: '', # not supported
+    '#timel': lambda *args: '',  # not supported
 
-    '#titleparts': lambda *args: '', # not supported
+    '#titleparts': lambda *args: '',  # not supported
 
     # This function is used in some pages to construct links
     # http://meta.wikimedia.org/wiki/Help:URL
@@ -1272,9 +1310,10 @@ parserFunctions = {
 
     'ucfirst': lambda string, *rest: ucfirst(string),
 
-    'int': lambda  string, *rest: str(int(string)),
+    'int': lambda string, *rest: str(int(string)),
 
 }
+
 
 def callParserFunction(functionName, args, frame):
     """
@@ -1286,19 +1325,20 @@ def callParserFunction(functionName, args, frame):
     """
 
     try:
-       if functionName == '#invoke':
-           # special handling of frame
-           ret = sharp_invoke(args[0].strip(), args[1].strip(), frame)
-           logging.debug('parserFunction> %s %s', functionName, ret)
-           return ret
-       if functionName in parserFunctions:
-           ret = parserFunctions[functionName](*args)
-           logging.debug('parserFunction> %s %s', functionName, ret)
-           return ret
+        if functionName == '#invoke':
+            # special handling of frame
+            ret = sharp_invoke(args[0].strip(), args[1].strip(), frame)
+            logging.debug('parserFunction> %s %s', functionName, ret)
+            return ret
+        if functionName in parserFunctions:
+            ret = parserFunctions[functionName](*args)
+            logging.debug('parserFunction> %s %s', functionName, ret)
+            return ret
     except:
-        return ""             # FIXME: fix errors
+        return ""  # FIXME: fix errors
 
     return ""
+
 
 # ----------------------------------------------------------------------
 # Expand using WikiMedia API
@@ -1323,6 +1363,7 @@ redirects = {}
 # cache of parser templates
 templateCache = {}
 
+
 def define_template(title, page):
     """
     Adds a template defined in the :param page:.
@@ -1331,12 +1372,12 @@ def define_template(title, page):
     global templates
     global redirects
 
-    #title = normalizeTitle(title)
+    # title = normalizeTitle(title)
 
     # check for redirects
     m = re.match('#REDIRECT.*?\[\[([^\]]*)]]', page[0])
     if m:
-        redirects[title] = m.group(1) #normalizeTitle(m.group(1))
+        redirects[title] = m.group(1)  # normalizeTitle(m.group(1))
         return
 
     text = unescape(''.join(page))
@@ -1372,6 +1413,7 @@ def define_template(title, page):
             logging.warn('Redefining: %s', title)
         templates[title] = text
 
+
 # ----------------------------------------------------------------------
 
 def dropNested(text, openDelim, closeDelim):
@@ -1381,8 +1423,8 @@ def dropNested(text, openDelim, closeDelim):
     openRE = re.compile(openDelim)
     closeRE = re.compile(closeDelim)
     # partition text in separate blocks { } { }
-    spans = []                # pairs (s, e) for each partition
-    nest = 0                    # nesting level
+    spans = []  # pairs (s, e) for each partition
+    nest = 0  # nesting level
     start = openRE.search(text, 0)
     if not start:
         return text
@@ -1390,9 +1432,9 @@ def dropNested(text, openDelim, closeDelim):
     next = start
     while end:
         next = openRE.search(text, next.end())
-        if not next:            # termination
-            while nest:         # close all pending
-                nest -=1
+        if not next:  # termination
+            while nest:  # close all pending
+                nest -= 1
                 end0 = closeRE.search(text, end.end())
                 if end0:
                     end = end0
@@ -1407,7 +1449,7 @@ def dropNested(text, openDelim, closeDelim):
                 # try closing more
                 last = end.end()
                 end = closeRE.search(text, end.end())
-                if not end:     # unbalanced
+                if not end:  # unbalanced
                     if spans:
                         span = (spans[0][0], last)
                     else:
@@ -1419,12 +1461,13 @@ def dropNested(text, openDelim, closeDelim):
                 # advance start, find next close
                 start = next
                 end = closeRE.search(text, next.end())
-                break           # { }
+                break  # { }
         if next != start:
             # { { }
             nest += 1
     # collect text outside partitions
     return dropSpans(spans, text)
+
 
 def dropSpans(spans, text):
     """
@@ -1433,13 +1476,14 @@ def dropSpans(spans, text):
     spans.sort()
     res = ''
     offset = 0
-    for s, e in  spans:
-        if offset <= s:         # handle nesting
+    for s, e in spans:
+        if offset <= s:  # handle nesting
             if offset < s:
                 res += text[offset:s]
             offset = e
     res += text[offset:]
     return res
+
 
 # ----------------------------------------------------------------------
 # WikiLinks
@@ -1459,7 +1503,7 @@ def replaceInternalLinks(text):
     # triple closing ]]].
     cur = 0
     res = ''
-    for s,e in findBalanced(text, ['[['], [']]']):
+    for s, e in findBalanced(text, ['[['], [']]']):
         m = tailRE.match(text, e)
         if m:
             trail = m.group(0)
@@ -1467,7 +1511,7 @@ def replaceInternalLinks(text):
         else:
             trail = ''
             end = e
-        inner = text[s+2:e-2]
+        inner = text[s + 2:e - 2]
         # find first |
         pipe = inner.find('|')
         if pipe < 0:
@@ -1476,30 +1520,31 @@ def replaceInternalLinks(text):
         else:
             title = inner[:pipe].rstrip()
             # find last |
-            curp = pipe+1
-            for s1,e1 in findBalanced(inner, ['[['], [']]']):
+            curp = pipe + 1
+            for s1, e1 in findBalanced(inner, ['[['], [']]']):
                 last = inner.rfind('|', curp, s1)
                 if last >= 0:
-                    pipe = last # advance
+                    pipe = last  # advance
                 curp = e1
-            label = inner[pipe+1:].strip()
+            label = inner[pipe + 1:].strip()
         res += text[cur:s] + makeInternalLink(title, label) + trail
         cur = end
     return res + text[cur:]
 
+
 # the official version is a method in class Parser, similar to this:
 # def replaceInternalLinks2(text):
 #     global wgExtraInterlanguageLinkPrefixes
- 
+
 #     # the % is needed to support urlencoded titles as well
 #     tc = Title::legalChars() + '#%'
 #     # Match a link having the form [[namespace:link|alternate]]trail
 #     e1 = re.compile("([%s]+)(?:\\|(.+?))?]](.*)" % tc, re.S | re.D)
 #     # Match cases where there is no "]]", which might still be images
 #     e1_img = re.compile("([%s]+)\\|(.*)" % tc, re.S | re.D)
- 
+
 #     holders = LinkHolderArray(self)
- 
+
 #     # split the entire text string on occurrences of [[
 #     iterBrackets = re.compile('[[').finditer(text)
 
@@ -1509,7 +1554,7 @@ def replaceInternalLinks(text):
 #     cur = m.end()
 
 #     line = s
- 
+
 #     useLinkPrefixExtension = self.getTargetLanguage().linkPrefixExtension()
 #     e2 = None
 #     if useLinkPrefixExtension:
@@ -1534,7 +1579,7 @@ def replaceInternalLinks(text):
 #         prefix = ''
 
 #     useSubpages = self.areSubpagesAllowed()
- 
+
 #     for m in iterBrackets:
 #         line = text[cur:m.start()]
 #         cur = m.end()
@@ -1552,9 +1597,9 @@ def replaceInternalLinks(text):
 #             if first_prefix:
 #                 prefix = first_prefix
 #                 first_prefix = False
- 
+
 #         might_be_img = False
- 
+
 #         m = e1.match(line)
 #         if m: # page with normal label or alt
 #             label = m.group(2)
@@ -1650,7 +1695,7 @@ def replaceInternalLinks(text):
 #                 # note: no trail, because without an end, there *is* no trail
 #                      continue
 #         }
- 
+
 #         wasblank = (text == '')
 #         if wasblank:
 #             text = link
@@ -1696,7 +1741,7 @@ def replaceInternalLinks(text):
 #                 else:
 #                     s += prefix + trail
 #                 continue
- 
+
 #             if ns == NS_CATEGORY:
 #                 s = rstrip(s + "\n") # bug 87
 
@@ -1721,7 +1766,7 @@ def replaceInternalLinks(text):
 #         if ns != NS_SPECIAL and nt.equals(self.mTitle) and !nt.hasFragment():
 #             s += prefix + Linker::makeSelfLinkObj(nt, text, '', trail)
 #                  continue
- 
+
 #         # NS_MEDIA is a pseudo-namespace for linking directly to a file
 #         # @todo FIXME: Should do batch file existence checks, see comment below
 #         if ns == NS_MEDIA:
@@ -1757,13 +1802,14 @@ def makeInternalLink(title, label):
         return ''
     if colon == 0:
         # drop also :File:
-        colon2 = title.find(':', colon+1)
-        if colon2 > 1 and title[colon+1:colon2] not in acceptedNamespaces:
+        colon2 = title.find(':', colon + 1)
+        if colon2 > 1 and title[colon + 1:colon2] not in acceptedNamespaces:
             return ''
     if Extractor.keepLinks:
         return '<a href="%s">%s</a>' % (urllib.quote(title.encode('utf-8')), anchor)
     else:
         return label
+
 
 # ----------------------------------------------------------------------
 # External links
@@ -1771,10 +1817,10 @@ def makeInternalLink(title, label):
 # from: https://doc.wikimedia.org/mediawiki-core/master/php/DefaultSettings_8php_source.html
 
 wgUrlProtocols = [
-     'bitcoin:', 'ftp://', 'ftps://', 'geo:', 'git://', 'gopher://', 'http://',
-     'https://', 'irc://', 'ircs://', 'magnet:', 'mailto:', 'mms://', 'news:',
-     'nntp://', 'redis://', 'sftp://', 'sip:', 'sips:', 'sms:', 'ssh://',
-     'svn://', 'tel:', 'telnet://', 'urn:', 'worldwind://', 'xmpp:', '//'
+    'bitcoin:', 'ftp://', 'ftps://', 'geo:', 'git://', 'gopher://', 'http://',
+    'https://', 'irc://', 'ircs://', 'magnet:', 'mailto:', 'mms://', 'news:',
+    'nntp://', 'redis://', 'sftp://', 'sip:', 'sips:', 'sms:', 'ssh://',
+    'svn://', 'tel:', 'telnet://', 'urn:', 'worldwind://', 'xmpp:', '//'
 ]
 
 # from: https://doc.wikimedia.org/mediawiki-core/master/php/Parser_8php_source.html
@@ -1784,11 +1830,14 @@ wgUrlProtocols = [
 # \p{Zs} is unicode 'separator, space' category. It covers the space 0x20
 # as well as U+3000 is IDEOGRAPHIC SPACE for bug 19052
 EXT_LINK_URL_CLASS = r'[^][<>"\x00-\x20\x7F\s]'
-ExtLinkBracketedRegex = re.compile('\[(((?i)' + '|'.join(wgUrlProtocols) + ')' + EXT_LINK_URL_CLASS + r'+)\s*([^\]\x00-\x08\x0a-\x1F]*?)\]', re.S | re.U)
+ExtLinkBracketedRegex = re.compile(
+    '\[(((?i)' + '|'.join(wgUrlProtocols) + ')' + EXT_LINK_URL_CLASS + r'+)\s*([^\]\x00-\x08\x0a-\x1F]*?)\]',
+    re.S | re.U)
 EXT_IMAGE_REGEX = re.compile(
     r"""^(http://|https://)([^][<>"\x00-\x20\x7F\s]+)
     /([A-Za-z0-9_.,~%\-+&;#*?!=()@\x80-\xFF]+)\.((?i)gif|png|jpg|jpeg)$""",
     re.X | re.S | re.U)
+
 
 def replaceExternalLinks(text):
     s = ''
@@ -1799,7 +1848,7 @@ def replaceExternalLinks(text):
 
         url = m.group(1)
         label = m.group(3)
- 
+
         # # The characters '<' and '>' (which were escaped by
         # # removeHTMLtags()) should not be included in
         # # URLs, per RFC 2396.
@@ -1807,20 +1856,21 @@ def replaceExternalLinks(text):
         # if m2:
         #     link = url[m2.end():] + ' ' + link
         #     url = url[0:m2.end()]
- 
+
         # If the link text is an image URL, replace it with an <img> tag
         # This happened by accident in the original parser, but some people used it extensively
         m = EXT_IMAGE_REGEX.match(label)
         if m:
             label = makeExternalImage(label)
- 
+
         # Use the encoded URL
         # This means that users can paste URLs directly into the text
         # Funny characters like ö aren't valid in URLs anyway
         # This was changed in August 2004
-        s += makeExternalLink(url, label) #+ trail
- 
+        s += makeExternalLink(url, label)  # + trail
+
     return s + text[cur:]
+
 
 # Function applied to wikiLinks
 def makeExternalLink(title, anchor):
@@ -1829,13 +1879,14 @@ def makeExternalLink(title, anchor):
         return ''
     if colon == 0:
         # drop also :File:
-        colon2 = title.find(':', colon+1)
-        if colon2 > 1 and title[colon+1:colon2] not in acceptedNamespaces:
+        colon2 = title.find(':', colon + 1)
+        if colon2 > 1 and title[colon + 1:colon2] not in acceptedNamespaces:
             return ''
     if Extractor.keepLinks:
         return '<a href="%s">%s</a>' % (urllib.quote(title.encode('utf-8')), anchor)
     else:
         return anchor
+
 
 def makeExternalImage(url, alt=''):
     if Extractor.keepLinks:
@@ -1852,6 +1903,7 @@ tailRE = re.compile('\w+')
 syntaxhighlight = re.compile('&lt;syntaxhighlight .*?&gt;(.*?)&lt;/syntaxhighlight&gt;', re.DOTALL)
 
 expand_templates = True
+
 
 def clean(extractor, text):
     """
@@ -1909,7 +1961,7 @@ def clean(extractor, text):
     spans = []
     # Drop HTML comments
     for m in comment.finditer(text):
-            spans.append((m.start(), m.end()))
+        spans.append((m.start(), m.end()))
 
     # Drop self-closing tags
     for pattern in selfClosing_tag_patterns:
@@ -1951,28 +2003,30 @@ def clean(extractor, text):
     text = dots.sub('...', text)
     text = re.sub(u' (,:\.\)\]»)', r'\1', text)
     text = re.sub(u'(\[\(«) ', r'\1', text)
-    text = re.sub(r'\n\W+?\n', '\n', text, flags=re.U) # lines with only punctuations
+    text = re.sub(r'\n\W+?\n', '\n', text, flags=re.U)  # lines with only punctuations
     text = text.replace(',,', ',').replace(',.', '.')
 
     return text
 
+
 # skip level 1, it is page name level
 section = re.compile(r'(==+)\s*(.*?)\s*\1')
 
-listOpen = { '*': '<ul>', '#': '<ol>', ';': '<dl>', ':': '<dl>' }
-listClose = { '*': '</ul>', '#': '</ol>', ';': '</dl>', ':': '</dl>' }
-listItem = { '*': '<li>%s</li>', '#': '<li>%s</<li>', ';': '<dt>%s</dt>',
-             ':': '<dd>%s</dd>' }
+listOpen = {'*': '<ul>', '#': '<ol>', ';': '<dl>', ':': '<dl>'}
+listClose = {'*': '</ul>', '#': '</ol>', ';': '</dl>', ':': '</dl>'}
+listItem = {'*': '<li>%s</li>', '#': '<li>%s</<li>', ';': '<dt>%s</dt>',
+            ':': '<dd>%s</dd>'}
+
 
 def compact(text):
     """Deal with headers, lists, empty sections, residuals of tables.
     :param toHTML: convert to HTML
     """
 
-    page = []                   # list of paragraph
-    headers = {}                # Headers for unfilled sections
-    emptySection = False        # empty sections are discarded
-    listLevel = ''              # nesting of lists
+    page = []  # list of paragraph
+    headers = {}  # Headers for unfilled sections
+    emptySection = False  # empty sections are discarded
+    listLevel = ''  # nesting of lists
 
     for line in text.split('\n'):
 
@@ -2003,13 +2057,13 @@ def compact(text):
                 page.append(title)
         # handle indents
         elif line[0] == ':':
-            #page.append(line.lstrip(':*#;'))
+            # page.append(line.lstrip(':*#;'))
             continue
         # handle lists
         elif line[0] in '*#;:':
             if Extractor.toHTML:
                 i = 0
-                for c,n in izip_longest(listLevel, line):
+                for c, n in izip_longest(listLevel, line):
                     if n not in '*#;:':
                         if c:
                             page.append(listClose[c])
@@ -2025,7 +2079,7 @@ def compact(text):
                         listLevel = listLevel + n
                         page.append(listOpen[n])
                     i += 1
-                n = line[i-1]
+                n = line[i - 1]
                 line = line[i:].strip()
                 if line:
                     page.append(listItem[n] % line)
@@ -2049,7 +2103,7 @@ def compact(text):
                 for (i, v) in items:
                     page.append(v)
             headers.clear()
-            page.append(line)   # first line
+            page.append(line)  # first line
             emptySection = False
         elif not emptySection:
             page.append(line)
@@ -2060,12 +2114,14 @@ def compact(text):
 
     return page
 
+
 def handle_unicode(entity):
     numeric_code = int(entity[2:-1])
     if numeric_code >= 0x10000: return ''
     return unichr(numeric_code)
 
-#------------------------------------------------------------------------------
+
+# ------------------------------------------------------------------------------
 # Output
 
 class NextFile(object):
@@ -2098,6 +2154,7 @@ class NextFile(object):
 
     def _filepath(self):
         return '%s/wiki_%02d' % (self._dirname(), self.file_index)
+
 
 class OutputSplitter(object):
     """
@@ -2133,12 +2190,15 @@ class OutputSplitter(object):
         else:
             return open(filename, 'w')
 
+
 # ----------------------------------------------------------------------
 # READER
 
 tagRE = re.compile(r'(.*?)<(/?\w+)[^>]*>(?:([^<]*)(<.*?>)?)?')
+
+
 #                    1     2               3      4
-#tagRE = re.compile(r'(.*?)<(/?\w+)[^>]*>([^<]*)')
+# tagRE = re.compile(r'(.*?)<(/?\w+)[^>]*>([^<]*)')
 
 def load_templates(file, output_file=None):
     """
@@ -2153,7 +2213,7 @@ def load_templates(file, output_file=None):
         output = codecs.open(output_file, 'wb', 'utf-8')
     for line in file:
         line = line.decode('utf-8')
-        if '<' not in line:         # faster than doing re.search()
+        if '<' not in line:  # faster than doing re.search()
             if inText:
                 page.append(line)
             continue
@@ -2169,7 +2229,7 @@ def load_templates(file, output_file=None):
             inText = True
             line = line[m.start(3):m.end(3)]
             page.append(line)
-            if m.lastindex == 4: # open-close
+            if m.lastindex == 4:  # open-close
                 inText = False
         elif tag == '/text':
             if m.group(1):
@@ -2193,6 +2253,7 @@ def load_templates(file, output_file=None):
             articles += 1
             if articles % 10000 == 0:
                 logging.info("Preprocessed %d pages", articles)
+
 
 def process_dump(input_file, template_file, outdir, file_size, file_compress, threads):
     """
@@ -2218,7 +2279,7 @@ def process_dump(input_file, template_file, outdir, file_size, file_compress, th
     for line in input:
         line = line.decode('utf-8')
         m = tagRE.search(line)
-        if not  m:
+        if not m:
             continue
         tag = m.group(2)
         if tag == 'base':
@@ -2249,7 +2310,7 @@ def process_dump(input_file, template_file, outdir, file_size, file_compress, th
     logging.info("Starting processing pages from %s.", input_file)
 
     # initialize jobs queue
-    #threads = multiprocessing.cpu_count()
+    # threads = multiprocessing.cpu_count()
     logging.info("Using %d CPUs.", threads)
     queue = Queue.Queue(maxsize=2 * threads)
     lock = threading.Lock()  # for protecting shared state.
@@ -2258,7 +2319,7 @@ def process_dump(input_file, template_file, outdir, file_size, file_compress, th
 
     # start worker threads
     workers = []
-    for _ in xrange(max(1, threads - 1)): # keep one for master
+    for _ in xrange(max(1, threads - 1)):  # keep one for master
         output_splitter = OutputSplitter(nextFile, file_size, file_compress)
         extractor = ExtractorThread(queue, output_splitter)
         workers.append(extractor)
@@ -2271,7 +2332,7 @@ def process_dump(input_file, template_file, outdir, file_size, file_compress, th
     redirect = False
     for line in input:
         line = line.decode('utf-8')
-        if '<' not in line:         # faster than doing re.search()
+        if '<' not in line:  # faster than doing re.search()
             if inText:
                 page.append(line)
             continue
@@ -2292,7 +2353,7 @@ def process_dump(input_file, template_file, outdir, file_size, file_compress, th
             inText = True
             line = line[m.start(3):m.end(3)]
             page.append(line)
-            if m.lastindex == 4: # open-close
+            if m.lastindex == 4:  # open-close
                 inText = False
         elif tag == '/text':
             if m.group(1):
@@ -2304,7 +2365,7 @@ def process_dump(input_file, template_file, outdir, file_size, file_compress, th
             colon = title.find(':')
             if (colon < 0 or title[:colon] in acceptedNamespaces) and \
                     not redirect and not title.startswith(templateNamespace):
-                queue.put(Extractor(id, title, page), True) # block if full
+                queue.put(Extractor(id, title, page), True)  # block if full
             id = None
             page = []
 
@@ -2314,13 +2375,14 @@ def process_dump(input_file, template_file, outdir, file_size, file_compress, th
     input.close()
 
 
-#----------------------------------------------------------------------
+# ----------------------------------------------------------------------
 # Multithread version
 
 class ExtractorThread(threading.Thread):
     """
     Extractor thread.
     """
+
     def __init__(self, queue, splitter):
         self._queue = queue
         self._splitter = splitter
@@ -2337,17 +2399,19 @@ class ExtractorThread(threading.Thread):
             else:
                 break
 
+
 # ----------------------------------------------------------------------
 
 # Minimum size of output files
 minFileSize = 200 * 1024
+
 
 def main():
     global urlbase, acceptedNamespaces
     global expand_templates
 
     parser = argparse.ArgumentParser(prog=os.path.basename(sys.argv[0]),
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+                                     formatter_class=argparse.RawDescriptionHelpFormatter,
                                      description=__doc__)
     parser.add_argument("input",
                         help="XML wiki dump file")
@@ -2399,7 +2463,7 @@ def main():
 
     try:
         power = 'kmg'.find(args.bytes[-1].lower()) + 1
-        file_size = int(args.bytes[:-1]) * 1024 ** power 
+        file_size = int(args.bytes[:-1]) * 1024 ** power
         if file_size < minFileSize: raise ValueError()
     except ValueError:
         logging.error('Insufficient or invalid size: %s', args.bytes)
@@ -2448,6 +2512,7 @@ def main():
 
     process_dump(input_file, args.templates, output_dir, file_size,
                  args.compress, args.threads)
+
 
 if __name__ == '__main__':
     main()
