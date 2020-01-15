@@ -62,13 +62,21 @@ code/.ipynb_*
 code/my.*
 code/corpus*
 *bible*
-*.model
+*.corpus
+*.w2vmodel
 *.vocab
+*.bigram
+*.trigram
+*.npy
+*.wv
+*.tmp
 *.bz2
+*.gz
 *.xml
 *.shuffled
 *.result
 raw*/*
+*.xlsx
 
 .idea
 run.sh

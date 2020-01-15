@@ -3,7 +3,7 @@
 
 # script to visualize word embeddings of given model with PCA dimensionality reduction
 # creates image with matplotlib
-# 
+#
 # @author: Andreas Mueller
 # @see: Bachelor Thesis 'Analyse von Wort-Vektoren deutscher Textkorpora'
 #
@@ -27,13 +27,41 @@ currency = [
     'Schweiz', 'Franken', 'Deutschland', 'Euro', 'Grossbritannien', 'Pfund',
     'Japan', 'Yen', 'Russland', 'Rubel', 'USA', 'US-Dollar', 'Kroatien', 'Kuna'
 ]
-capital = [
-    'Athen', 'Griechenland', 'Berlin', 'Deutschland', 'Ankara', 'Tuerkei', 'Bern', 'Schweiz', 'Hanoi', 'Vietnam',
-    'Lissabon', 'Portugal', 'Moskau', 'Russland', 'Stockholm', 'Schweden', 'Tokio', 'Japan', 'Washington', 'USA'
+# capital = [
+#     'Athen', 'Griechenland', 'Berlin', 'Deutschland', 'Ankara', 'Tuerkei', 'Bern', 'Schweiz', 'Hanoi', 'Vietnam',
+#     'Lissabon', 'Portugal', 'Moskau', 'Russland', 'Stockholm', 'Schweden', 'Tokio', 'Japan', 'Washington', 'USA'
+# ]
+# language = [
+#     'Deutschland', 'Deutsch', 'USA', 'Englisch', 'Frankreich', 'Franzoesisch', 'Griechenland', 'Griechisch',
+#     'Norwegen', 'Norwegisch', 'Schweden', 'Schwedisch', 'Polen', 'Polnisch', 'Ungarn', 'Ungarisch'
+# ]
+industry_company = [
+    'Banken', 'Commerzbank', 'Banken', 'WestLB', 'Banken', 'Haspa',
+    'Versicherungen', 'Allianz',
+    'Automobilbau', 'Daimler', 'Automobilbau', 'BMW',
+    'Energiewirtschaft', 'RWE', 'Energiewirtschaft', 'Ruhrkohle'
 ]
-language = [
-    'Deutschland', 'Deutsch', 'USA', 'Englisch', 'Frankreich', 'Franzoesisch', 'Griechenland', 'Griechisch',
-    'Norwegen', 'Norwegisch', 'Schweden', 'Schwedisch', 'Polen', 'Polnisch', 'Ungarn', 'Ungarisch'
+
+industry_product = [
+    'Banken', 'Kredit', 'Banken', 'Konto', 'Banken', 'Geld',
+    'Versicherungen', 'Haftpflicht', 'Versicherungen', 'Lebensversicherung',
+    'Automobilbau', 'Auto', 'Automobilbau', 'LKW',
+    'Energiewirtschaft', 'Strom', 'Energiewirtschaft', 'Kohle', 'Energiewirtschaft', 'Windenergie', 'Energiewirtschaft',
+    'Solarstrom'
+]
+
+consulting = [
+    'Unternehmensberatung', 'zeb',
+    'Unternehmensberatung', 'SKS Unternehmensberatung',
+    'Unternehmensberatung', 'Capgemini',
+    'Unternehmensberatung', 'McKinsey',
+    'Unternehmensberatung', 'KPMG',
+    'Unternehmensberatung', 'PwC',
+    'Unternehmensberatung', 'EY',
+    'Unternehmensberatung', 'ifb',
+    'Unternehmensberatung', 'Wipro',
+    'Unternehmensberatung', 'Roland_Berger',
+    'Unternehmensberatung', 'Adesso',
 ]
 
 
@@ -115,9 +143,10 @@ def draw_words(model, words, pca=False, alternate=True, arrows=True, x1=3, x2=3,
 
 
 # get trained model
-print u'Load word2vec model from file...'
-trained_model = gensim.models.KeyedVectors.load_word2vec_format(args.model, binary=True)
+print(u'Load word2vec model from file...')
+mwv = gensim.models.KeyedVectors.load(args.model, mmap='r')
 # draw pca plots
-draw_words(trained_model, currency, True, True, True, -3, 3, -2, 2, r'$PCA\ Visualisierung:\ W\ddot{a}hrung$')
-draw_words(trained_model, capital, True, True, True, -3, 3, -2, 2.2, r'$PCA\ Visualisierung:\ Hauptstadt$')
-draw_words(trained_model, language, True, True, True, -3, 3, -2, 1.7, r'$PCA\ Visualisierung:\ Sprache$')
+draw_words(mwv, currency, True, True, True, -3, 3, -2, 2, r'$PCA\ Visualisierung:\ Currency')
+draw_words(mwv, consulting, True, True, True, -3, 3, -2, 2, r'$PCA\ Visualisierung:\ Industry and Product')
+draw_words(mwv, industry_company, True, True, True, -3, 3, -2, 2, r'$PCA\ Visualisierung:\ Industry and Company$')
+draw_words(mwv, industry_product, True, True, True, -3, 3, -2, 2, r'$PCA\ Visualisierung:\ Industry and Product')

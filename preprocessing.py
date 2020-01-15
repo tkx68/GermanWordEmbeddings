@@ -1,136 +1,140 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# script to preprocess corpora for training
-#
+# script to train word embeddings with word2vec
+# 
 # @author: Andreas Mueller
 # @see: Bachelor Thesis 'Analyse von Wort-Vektoren deutscher Textkorpora'
 #
 # Contributors:
 #  Michael Egger <michael.egger@tsn.at>
 #
-# @example: python preprocessing.py test.raw test.corpus -psub
+# @example: python word2vec_training.py corpus_dir/ test.model -s 300 -w 10
 
-import codecs
-import gensim
-import nltk.data
-from nltk.corpus import stopwords
 import argparse
-import os
-import re
+import codecs
 import logging
-import sys
-import itertools
 import multiprocessing as mp
+import os
+import pickle
+from itertools import islice
+from typing import Callable, Iterable, List
+
+import gensim
+import stanfordnlp
+from nltk.corpus import stopwords
+from nltk.stem.cistem import Cistem
 
 # configuration
-parser = argparse.ArgumentParser(description='Script for preprocessing public corpora')
-parser.add_argument('raw', type=str, help='source file with raw data for corpus creation')
-parser.add_argument('target', type=str, help='target file name to store corpus in')
-parser.add_argument('-p', '--punctuation', action='store_true', help='remove punctuation tokens')
-parser.add_argument('-s', '--stopwords', action='store_true', help='remove stop word tokens')
-parser.add_argument(
-    '-u', '--umlauts', action='store_true', help='replace german umlauts with their respective digraphs'
-)
-parser.add_argument('-b', '--bigram', action='store_true', help='detect and process common bigram phrases')
-parser.add_argument('-t', '--threads', type=int, default=8, help='thread count')  # mp.cpu_count()
-parser.add_argument('--batch_size', type=int, default=32, help='batch size for multiprocessing')
+parser = argparse.ArgumentParser(description='Script for training word vector models using public corpora')
+parser.add_argument('corpora', type=str,
+                    help='source folder with preprocessed corpora (one sentence plain text per line in each file)')
+parser.add_argument('--ngrams', type=int, default=2, help='use n-grams for n = 1, 2 or 3?')
+parser.add_argument('-x', '--eliminate_stopwords', type=bool, default=True, help='eliminate stop words?')
+parser.add_argument('--lemmatize', type=bool, default=False, help='use only lemmata of words?')
+parser.add_argument('--stem', type=bool, default=False, help='use only stems of words via nltk''s CISTEM stemmer?')
+parser.add_argument('-t', '--threads', type=int, default=mp.cpu_count(),
+                    help='number of worker threads to train the model')
+parser.add_argument('-l', '--log_to_file', type=bool, default=False, help='write log texts to file?')
 args = parser.parse_args()
-logging.basicConfig(stream=sys.stdout, format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
-sentence_detector = nltk.data.load('tokenizers/punkt/german.pickle')
-punctuation_tokens = [u'.', u'..', u'...', u',', u';', u':', u'(', u')', u'"', u'\'', u'[', u']',
-                      u'{', u'}', u'?', u'!', u'-', u'–', u'+', u'*', u'--', u'\'\'', u'``']
-punctuation = u'?.!/;:()&+'
 
-
-def replace_umlauts(text):
-    """
-    Replaces german umlauts and sharp s in given text.
-
-    :param text: text as str
-    :return: manipulated text as str
-    """
-    res = text
-    res = res.replace(u'ä', u'ae')
-    res = res.replace(u'ö', u'oe')
-    res = res.replace(u'ü', u'ue')
-    res = res.replace(u'Ä', u'Ae')
-    res = res.replace(u'Ö', u'Oe')
-    res = res.replace(u'Ü', u'Ue')
-    res = res.replace(u'ß', u'ss')
-    return res
-
-
-def process_line(line):
-    """
-    Pre processes the given line.
-
-    :param line: line as str
-    :return: preprocessed sentence
-    """
-    if line == u"":
-        return u""
-    # detect sentences
-    sentences = sentence_detector.tokenize(line)
-    # process each sentence
-    for sentence in sentences:
-        # replace umlauts
-        if args.umlauts:
-            sentence = replace_umlauts(sentence)
-        # get word tokens
-        words = nltk.word_tokenize(sentence)
-        # filter punctuation and stopwords
-        if args.punctuation:
-            words = [x for x in words if x not in punctuation_tokens]
-            words = [re.sub(u'[' + punctuation + u']', u'', x) for x in words]
-        if args.stopwords:
-            words = [x for x in words if x not in stop_words]
-        # write one sentence per line in output file, if sentence has more than 1 word
-        if len(words) > 1:
-            words = u' '.join(words) + u'\n'
-            return words
-
-
-# get stopwords
-if not args.umlauts:
-    stop_words = stopwords.words('german')
+if args.log_to_file:
+    log_file_name = args.target.strip() + '.log'
 else:
-    stop_words = [replace_umlauts(token) for token in stopwords.words('german')]
-logging.info("Use the following stop words: {}".format(stop_words))
-if not os.path.exists(os.path.dirname(args.target)):
-    os.makedirs(os.path.dirname(args.target))
+    log_file_name = None
+logging.basicConfig(
+    filename=log_file_name,
+    format='%(asctime)s : %(levelname)s : %(message)s',
+    level=logging.INFO)
 
-with codecs.open(args.target, 'w', encoding="utf-8") as outfile:
-    with codecs.open(args.raw, 'r', encoding="utf-8") as infile:
-        # start pre processing with multiple threads
-        pool = mp.Pool(args.threads)
-        values = pool.imap(process_line, infile, chunksize=args.batch_size)
-        # values = itertools.imap(process_line, infile)
-        for i, s in enumerate(values):
-            if i and i % 25000 == 0:
-                logging.info('processed {} sentences'.format(i))
-                outfile.flush()
-            if s:
-                outfile.write(s)
-        logging.info('preprocessing of {} sentences finished!'.format(i))
+logging.info("Using up to {} CPUs".format(args.threads))
+if args.lemmatize:
+    logging.info("Perform lemmatisation using nltk")
+    nlp_de = stanfordnlp.Pipeline(lang="de", processors="tokenize,lemma", use_gpu=True)
+if args.stem:
+    logging.info("Perform stemming using nltk''s CISTEM stemmer")
+    stemmer = Cistem()
+
+stop_words = stopwords.words('german')
 
 
 # get corpus sentences
-class CorpusSentences:
-    def __init__(self, filename):
-        self.filename = filename
+class CorpusSentences(object):
+    def __init__(self, directory_name: str, chunk_size: int = 10000):
+        self.directory_name = directory_name
+        self.n = chunk_size
 
     def __iter__(self):
-        for line in codecs.open(self.filename, encoding="utf-8"):
-            yield line.split()
+        for file_name in os.listdir(self.directory_name):
+            logging.info("Use corpus file %s " % file_name)
+            with codecs.open(os.path.join(self.directory_name, file_name), encoding="utf-8") as f:
+                while True:
+                    lines: List[str] = list(islice(f, self.n))
+                    if not lines:
+                        break
+                    if args.stem:
+                        for line in lines:
+                            sentence = line.split()
+                            stemmed_sentence = [stemmer.stem(w) for w in sentence]
+                            logging.debug("Stemmed sentence: %s" % ' '.join(stemmed_sentence))
+                            yield stemmed_sentence
+                    elif args.lemmatize:
+                        # one CR is already there and we add another one according to stanfordnlp's hint:
+                        doc = u'\n'.join(lines)
+                        logging.debug("Lemmatize the following block: ", doc)
+                        n = nlp_de(doc)
+                        for sentence in n.sentences:
+                            lemmatized_sentence = [t.words[0].lemma for t in sentence.tokens if t.words[0].lemma is not None and not t.words[0].lemma in stop_words]
+                            logging.debug("Yield lemmatized sentence: %s" % ' '.join(lemmatized_sentence))
+                            yield lemmatized_sentence
+                    else:
+                        for line in lines:
+                            yield line.split()
 
 
-if args.bigram:
-    logging.info('Train bigram phrase detector')
-    bigram = gensim.models.Phrases(CorpusSentences(args.target)) # stop words are already eliminated here
-    logging.info('Transform corpus to bigram phrases and save to corpus file')
-    with codecs.open(args.target + '.bigram', 'w', encoding='utf-8') as outfile:
-        for tokens in bigram[CorpusSentences(args.target)]:
-            outfile.write(u' '.join(tokens) + u'\n')
-    logging.info('Save bigram model to bigram-model file')
-    bigram.save(args.target + '.bigram-model')
+class Filter(object):
+    def __init__(self, corpus: Iterable[List[str]], predicate: Callable[[str], bool]):
+        self.corpus = corpus
+        self.predicate = predicate
+
+    def __iter__(self):
+        for sentence in self.corpus:
+            yield [word for word in sentence if self.predicate(word)]
+
+
+def is_not_stop_word(word: str) -> bool:
+    return not (word in stop_words)
+
+
+bigram_transformer = None
+trigram_transformer = None
+if args.ngrams > 1:
+    logging.info("Build bigram transformer...")
+    bigram_transformer = gensim.models.Phrases(CorpusSentences(args.corpora), common_terms=stop_words)
+    with open(args.target + u'.bigram', mode="wb") as f:
+        pickle.dump(bigram_transformer, f)
+    sentences: Iterable[List[str]]
+    sentences = bigram_transformer[CorpusSentences(args.corpora)]
+    if args.ngrams > 2:
+        sentences2 = list(sentences)
+        bigram_transformer = None
+        logging.info("Build trigram transformer from sentences with unigrams and bigrams...")
+        trigram_transformer = gensim.models.Phrases(sentences, common_terms=stop_words)
+        with open(args.target + u'.trigram', mode="wb") as f:
+            pickle.dump(trigram_transformer, f)
+        sentences = trigram_transformer[sentences2]
+else:
+    sentences = CorpusSentences(args.corpora)
+
+if args.eliminate_stopwords:
+    logging.info("Introduce stop words filter...")
+    sentences = Filter(sentences, is_not_stop_word)
+
+with codecs.open(args.target + '.corpus', 'w', encoding="utf-8") as tmp:
+    i: int
+    s: List[str]
+    for i, s in enumerate(sentences):
+        if i and i % 100000 == 0:
+            logging.info('Saved {} k sentences to temporary file'.format(round(i / 1000)))
+            tmp.flush()
+        tmp.write(' '.join(s) + u'\n')

@@ -59,7 +59,7 @@ Models trained with this toolkit are based on the German Wikipedia and German ne
 wget http://www.statmt.org/wmt14/training-monolingual-europarl-v7/europarl-v7.de.gz
 ```
 
-Proceed with this file in the same way as with the news data files.
+Proceed with this file in the same way as with the news data files. See http://www.statmt.org/wmt18/translation-task.html for more potential corpus files.
 
 ## Preprocessing <a name="preprocessing"></a>
 
@@ -68,9 +68,9 @@ This Tool preprocesses the raw wikipedia XML corpus with the WikipediaExtractor 
 ```shell
 wget http://medialab.di.unipi.it/Project/SemaWiki/Tools/WikiExtractor.py
 python WikiExtractor.py -c -b 25M -o extracted dewiki-latest-pages-articles.xml.bz2
-find extracted -name '*bz2' \! -exec bzip2 -k -c -d {} \; > dewiki.xml
-sed -i 's/<[^>]*>//g' dewiki.xml
-sed -i 's|["'\''„“‚‘]||g' dewiki.xml
+find extracted -name '*bz2' \! -exec bzip2 -k -c -d {} \; > wiki.de
+sed -i 's/<[^>]*>//g' wiki.de
+sed -i 's|["'\''„“‚‘]||g' wiki.de
 rm -rf extracted
 ```
 
@@ -84,7 +84,7 @@ done
 sed -i 's|["'\''„“‚‘]||g' news.$i.de.shuffled
 ```
 
-Afterwards, the [`preprocessing.py`](preprocessing.py) script can be called on these corpus files with the following options:
+Afterwards, the [`preprocessing.py`](cleansing.py) script can be called on these corpus files with the following options:
 
 flag                  | default | description
 --------------------- | ------- | ---------------------------------------------
@@ -99,13 +99,14 @@ flag                  | default | description
 Example usage:
 
 ```shell
-python preprocessing.py dewiki.xml corpus/dewiki.corpus -psub
-for file in *.shuffled; do python preprocessing.py $file corpus/$file.corpus -psub; done
+python preprocessing.py raw/wiki.de corpus/dewiki.corpus -pu
+for file in raw/*.shuffled; do python preprocessing.py $file corpus/$file.corpus -pu; done
+python preprocessing.py raw/europarl-v7.de corpus/europarl-v7.de.corpus -pu
 ```
 
 ## Training models <a name="training"></a>
 
-Models are trained with the help of the [`training.py`](training.py) script with the following options:
+Models are trained with the help of the [`training.py`](word2vec_training.py) script with the following options:
 
 flag                   | default | description
 ---------------------- | ------- | -----------------------------------------------------
